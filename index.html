@@ -595,8 +595,10 @@
               cell.classList.toggle("filled", val !== 0);
               if (val !== 0) {
                 cell.dataset.color = String(val);
+                cell.style.background = `var(--c${val})`;
               } else {
                 delete cell.dataset.color;
+                cell.style.background = "";
               }
             }
           }
