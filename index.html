@@ -95,6 +95,8 @@
             <div class="board" id="board" aria-label="board"></div>
           </div>
 
+          <div class="fx-layer" id="fxLayer" aria-hidden="true"></div>
+
           <div class="tray" id="tray"></div>
 
           <div class="hint">
@@ -380,6 +382,7 @@
           screenOver: document.getElementById("screenOver"),
 
           board: document.getElementById("board"),
+          fxLayer: document.getElementById("fxLayer"),
           tray: document.getElementById("tray"),
 
           homeBest: document.getElementById("homeBest"),
@@ -470,6 +473,69 @@
         function setUndoEnabled(enabled) {
           el.btnUndo.disabled = !enabled;
           el.btnUndoOver.disabled = !enabled;
+        }
+
+        function fxEnabled() {
+          return app.settings.effects !== "off";
+        }
+
+        function fxStrong() {
+          return app.settings.effects === "high";
+        }
+
+        function bumpScore() {
+          if (!fxEnabled()) return;
+          el.score.classList.remove("bump");
+          void el.score.offsetWidth;
+          el.score.classList.add("bump");
+          clearTimeout(bumpScore._t);
+          bumpScore._t = setTimeout(() => {
+            el.score.classList.remove("bump");
+          }, fxStrong() ? 320 : 220);
+        }
+
+        function flashBoard() {
+          if (!fxEnabled()) return;
+          el.board.classList.remove("flash", "flash-strong");
+          void el.board.offsetWidth;
+          el.board.classList.add("flash");
+          if (fxStrong()) el.board.classList.add("flash-strong");
+          setTimeout(() => {
+            el.board.classList.remove("flash", "flash-strong");
+          }, fxStrong() ? 320 : 220);
+        }
+
+        function fxPop(text) {
+          if (!fxEnabled()) return;
+          const d = document.createElement("div");
+          d.className = fxStrong() ? "fx-pop strong" : "fx-pop";
+          d.textContent = text;
+          el.fxLayer.appendChild(d);
+          d.addEventListener(
+            "animationend",
+            () => {
+              d.remove();
+            },
+            { once: true }
+          );
+        }
+
+        function animatePlaced(idxs, board) {
+          if (!fxEnabled()) return;
+          for (const idx of idxs) {
+            const r = Math.floor(idx / 8);
+            const c = idx % 8;
+            if (board && board[r] && board[r][c] === 0) continue;
+            const cell = boardCells[idx];
+            if (!cell) continue;
+            cell.classList.remove("placed", "placed-strong");
+            void cell.offsetWidth;
+            cell.classList.add("placed");
+            if (fxStrong()) cell.classList.add("placed-strong");
+            setTimeout(() => {
+              cell.classList.remove("placed", "placed-strong");
+            }, fxStrong() ? 320 : 220);
+          }
         }
 
         // ===== Board helpers =====
@@ -817,6 +883,9 @@
             snapshotForUndo();
 
             const placedCells = piece.blocks.length;
+            const placedIdxs = piece.blocks.map(
+              (bl) => (app.drag.anchor.row + bl.y) * 8 + (app.drag.anchor.col + bl.x)
+            );
             let board2 = place(app.game.board, piece, app.drag.anchor);
 
             const clears = detectClears(board2);
@@ -856,6 +925,16 @@
             renderBoard();
             renderHUD();
             renderTray();
+
+            bumpScore();
+            animatePlaced(placedIdxs, board2);
+            if (lines > 0) {
+              flashBoard();
+              fxPop(lines >= 2 ? `${lines}ライン!` : "ライン消去!");
+            }
+            if (app.game.score >= app.bestScore && app.game.score === app.bestScore) {
+              fxPop("ベスト!");
+            }
 
             const any = app.game.hand.some((p) =>
               isPlaceableAnywhere(app.game.board, p)
