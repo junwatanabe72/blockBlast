@@ -635,6 +635,8 @@
             pieceEl.dataset.color = String(
               piece.colorId || colorIdForShape(piece.shapeKey)
             );
+            pieceEl.style.setProperty("--w", String(piece.w));
+            pieceEl.style.setProperty("--h", String(piece.h));
 
             card.appendChild(pieceEl);
             el.tray.appendChild(card);
