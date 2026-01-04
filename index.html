@@ -86,6 +86,10 @@
             </div>
             <div class="hud-meta">
               <div class="stat">
+                <div class="label">レベル</div>
+                <div class="value" id="level">1</div>
+              </div>
+              <div class="stat">
                 <div class="label">残り時間</div>
                 <div class="value" id="timer">1:30</div>
               </div>
@@ -172,7 +176,8 @@
           theme: "dark", // "dark" | "light"
           effects: "low", // "off" | "low" | "high"（現状は表示のみ。演出拡張時に使用）
         };
-        const GOAL_LINES = 10;
+        const LEVEL_GOALS = [5, 8, 12];
+        const MAX_LEVEL = LEVEL_GOALS.length;
         const TIMER_SECONDS = 90;
 
         // ===== Piece definitions (base + auto rotations) =====
@@ -400,6 +405,7 @@
           homeBest: document.getElementById("homeBest"),
           score: document.getElementById("score"),
           best: document.getElementById("best"),
+          level: document.getElementById("level"),
           timer: document.getElementById("timer"),
           linesLeft: document.getElementById("linesLeft"),
 
@@ -456,6 +462,7 @@
           view: "home",
           settings: loadSettings(),
           bestScore: loadBest(),
+          level: 1,
           game: null,
           undo: null, // 直前状態のスナップショット（1手のみ）
           drag: { active: false },
@@ -506,11 +513,20 @@
           el.timer.classList.toggle("danger", app.timeLeft <= 10);
         }
 
+        function currentGoal() {
+          return LEVEL_GOALS[Math.max(0, app.level - 1)] || LEVEL_GOALS[0];
+        }
+
         function renderLines() {
           if (!el.linesLeft || !app.game) return;
-          const left = Math.max(0, GOAL_LINES - app.game.linesCleared);
+          const left = Math.max(0, currentGoal() - app.game.linesCleared);
           el.linesLeft.textContent = String(left);
           el.linesLeft.classList.toggle("done", left === 0);
+        }
+
+        function renderLevel() {
+          if (!el.level) return;
+          el.level.textContent = `${app.level}/${MAX_LEVEL}`;
         }
 
         function stopTimer() {
@@ -577,10 +593,16 @@
           }, fxStrong() ? 320 : 220);
         }
 
-        function fxPop(text) {
+        function fxPop(text, variant = "auto") {
           if (!fxEnabled()) return;
           const d = document.createElement("div");
-          d.className = fxStrong() ? "fx-pop strong" : "fx-pop";
+          let cls = "fx-pop";
+          if (variant === "mega") {
+            cls += " mega";
+          } else if (variant === "strong" || (variant === "auto" && fxStrong())) {
+            cls += " strong";
+          }
+          d.className = cls;
           d.textContent = text;
           el.fxLayer.appendChild(d);
           d.addEventListener(
@@ -782,6 +804,7 @@
           el.score.textContent = String(app.game.score);
           el.best.textContent = `Best: ${app.bestScore}`;
           setUndoEnabled(!!app.undo);
+          renderLevel();
           renderTimer();
           renderLines();
         }
@@ -949,6 +972,31 @@
           showScreen("over");
         }
 
+        function levelUp() {
+          if (!app.game) return;
+          if (app.level >= MAX_LEVEL) return;
+          app.level += 1;
+          app.game.linesCleared = 0;
+          app.overMsgText = null;
+          app.timeLeft = TIMER_SECONDS;
+          renderHUD();
+          fxPop(`レベル${app.level}!`, "strong");
+          flashBoard();
+          fxFireworks(3);
+          startTimer();
+          app.undo = null;
+          setUndoEnabled(false);
+        }
+
+        function celebrateClear() {
+          fxPop("クリア!", "mega");
+          flashBoard();
+          fxFireworks(5);
+          if (fxStrong()) {
+            fxFireworks(4);
+          }
+        }
+
         function onTrayPointerDown(e) {
           const card = e.target.closest(".piece-card");
           if (!card || !app.game) return;
@@ -1066,10 +1114,13 @@
               fxPop("ベスト!");
               fxFireworks(2);
             }
-            if (app.game.linesCleared >= GOAL_LINES) {
-              fxPop("クリア！");
-              fxFireworks(3);
-              endGame("クリア！");
+            if (app.game.linesCleared >= currentGoal()) {
+              if (app.level < MAX_LEVEL) {
+                levelUp();
+              } else {
+                celebrateClear();
+                endGame("クリア！");
+              }
               return;
             }
 
@@ -1130,6 +1181,7 @@ URL: ${location.href}`;
 
         // ===== Actions =====
         function startFreshGame() {
+          app.level = 1;
           app.game = newGame();
           app.undo = null;
           app.overMsgText = null;

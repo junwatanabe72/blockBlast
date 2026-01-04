@@ -245,7 +245,7 @@ body.theme-light {
 
 .hud-meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -265,7 +265,7 @@ body.theme-light {
 }
 
 .stat .value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -426,6 +426,15 @@ body.theme-light {
   color: var(--accent2);
   font-size: 20px;
   animation-duration: 0.9s;
+}
+
+.fx-pop.mega {
+  color: var(--accent);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  animation-duration: 1s;
 }
 
 .modalback {
