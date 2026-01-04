@@ -25,13 +25,6 @@
         <div class="body">
           <div class="field">
             <div>
-              <div style="font-weight: 900">テーマ</div>
-              <div class="hint">見やすい方に切り替え</div>
-            </div>
-            <button class="switch" id="swTheme">Dark</button>
-          </div>
-          <div class="field">
-            <div>
               <div style="font-weight: 900">演出</div>
               <div class="hint">軽さ優先なら Off 推奨</div>
             </div>
@@ -403,7 +396,6 @@
           btnCloseModal: document.getElementById("btnCloseModal"),
           btnOkModal: document.getElementById("btnOkModal"),
           btnResetBest: document.getElementById("btnResetBest"),
-          swTheme: document.getElementById("swTheme"),
           swEffects: document.getElementById("swEffects"),
 
           btnStart: document.getElementById("btnStart"),
@@ -431,7 +423,9 @@
             const raw = localStorage.getItem(LS_SETTINGS);
             if (!raw) return { ...DEFAULT_SETTINGS };
             const obj = JSON.parse(raw);
-            return { ...DEFAULT_SETTINGS, ...obj };
+            const s = { ...DEFAULT_SETTINGS, ...obj };
+            s.theme = "dark";
+            return s;
           } catch {
             return { ...DEFAULT_SETTINGS };
           }
@@ -468,10 +462,8 @@
         }
 
         function applyTheme() {
-          const t = app.settings.theme;
-          document.body.classList.toggle("theme-light", t === "light");
-          document.body.classList.toggle("theme-dark", t !== "light");
-          el.swTheme.textContent = t === "light" ? "Light" : "Dark";
+          document.body.classList.remove("theme-light");
+          document.body.classList.add("theme-dark");
           el.swEffects.textContent = app.settings.effects.toUpperCase();
         }
 
@@ -979,13 +971,6 @@ URL: ${location.href}`;
           renderHome();
           if (app.game) renderHUD();
           toast("ベストをリセット");
-        });
-
-        el.swTheme.addEventListener("click", () => {
-          app.settings.theme =
-            app.settings.theme === "light" ? "dark" : "light";
-          applyTheme();
-          saveSettings(app.settings);
         });
 
         el.swEffects.addEventListener("click", () => {
