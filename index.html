@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Private Block Puzzle</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body class="theme-dark">
+    <div class="toast" id="toast"></div>
+
+    <div
+      class="modalback"
+      id="modalback"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+    >
+      <div class="modal">
+        <div class="head">
+          <div style="font-weight: 900">設定</div>
+          <button class="btn small ghost" id="btnCloseModal">閉じる</button>
+        </div>
+        <div class="body">
+          <div class="field">
+            <div>
+              <div style="font-weight: 900">テーマ</div>
+              <div class="hint">見やすい方に切り替え</div>
+            </div>
+            <button class="switch" id="swTheme">Dark</button>
+          </div>
+          <div class="field">
+            <div>
+              <div style="font-weight: 900">演出</div>
+              <div class="hint">軽さ優先なら Off 推奨</div>
+            </div>
+            <button class="switch" id="swEffects">Low</button>
+          </div>
+          <div class="hint">
+            GitHub Pages
+            は基本「公開URL」です。身内共有以外の用途にする場合は認証設計が必要になります。
+          </div>
+        </div>
+        <div class="footer-actions">
+          <button class="btn" id="btnResetBest">ベストをリセット</button>
+          <button class="btn primary" id="btnOkModal">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app">
+      <!-- HOME -->
+      <section class="screen active" id="screenHome">
+        <div class="card home">
+          <p class="title">Private Block Puzzle</p>
+          <p class="sub">身内用・URL共有で遊ぶ Web パズル（広告なし）</p>
+
+          <div
+            class="card"
+            style="
+              padding: 14px;
+              background: var(--panel2);
+              border-color: rgba(255, 255, 255, 0.1);
+            "
+          >
+            <div class="muted" style="font-weight: 800; font-size: 12px">
+              自己ベスト
+            </div>
+            <div class="big" id="homeBest">0</div>
+          </div>
+
+          <div class="row">
+            <button class="btn primary" id="btnStart" style="flex: 1">
+              プレイ開始
+            </button>
+            <button class="btn" id="btnSettingsHome">設定</button>
+          </div>
+
+          <div class="hint">
+            ルール：手持ちピースをドラッグして盤面へ配置。行/列が揃うと消えます。置けなくなったら終了。
+          </div>
+        </div>
+      </section>
+
+      <!-- GAME -->
+      <section class="screen" id="screenGame">
+        <div class="card game">
+          <div class="hud">
+            <div class="scorebox">
+              <div class="score" id="score">0</div>
+              <div class="best" id="best">Best: 0</div>
+            </div>
+            <div class="row" style="justify-content: flex-end; flex-wrap: wrap">
+              <button class="btn small" id="btnUndo" disabled>Undo</button>
+              <button class="btn small" id="btnRestart">リスタート</button>
+              <button class="btn small" id="btnSettingsGame">設定</button>
+            </div>
+          </div>
+
+          <div class="boardwrap">
+            <div class="board" id="board" aria-label="board"></div>
+          </div>
+
+          <div class="tray" id="tray"></div>
+
+          <div class="hint">
+            操作のコツ：ピース上の「つかんだブロック」が、盤面のセルに吸着して置ける/置けないが色で分かります。
+          </div>
+        </div>
+      </section>
+
+      <!-- GAMEOVER -->
+      <section class="screen" id="screenOver">
+        <div class="card home">
+          <p class="title">ゲーム終了</p>
+          <p class="sub" id="overMsg">おつかれさまでした。</p>
+
+          <div
+            class="card"
+            style="
+              padding: 14px;
+              background: var(--panel2);
+              border-color: rgba(255, 255, 255, 0.1);
+            "
+          >
+            <div class="muted" style="font-weight: 800; font-size: 12px">
+              今回スコア
+            </div>
+            <div class="big" id="overScore">0</div>
+            <div
+              class="muted"
+              style="font-weight: 800; font-size: 12px; margin-top: 10px"
+            >
+              自己ベスト
+            </div>
+            <div class="big" id="overBest">0</div>
+          </div>
+
+          <div class="row" style="align-items: stretch">
+            <button class="btn primary" id="btnAgain" style="flex: 1">
+              もう一回
+            </button>
+            <button class="btn" id="btnUndoOver">Undoして続ける</button>
+          </div>
+
+          <div class="row" style="align-items: stretch">
+            <button class="btn" id="btnCopy" style="flex: 1">
+              結果をコピー
+            </button>
+            <button class="btn" id="btnHome">ホーム</button>
+          </div>
+
+          <div class="hint">
+            Undoは直前の1手のみ戻せます（1回使うと消費）。詰んだ時の救済として使えます。
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (() => {
+        const LS_BEST = "bb_private_v1_bestScore";
+        const LS_SETTINGS = "bb_private_v1_settings";
+
+        const DEFAULT_SETTINGS = {
+          theme: "dark", // "dark" | "light"
+          effects: "low", // "off" | "low" | "high"（現状は表示のみ。演出拡張時に使用）
+        };
+
+        // ===== Piece definitions (base + auto rotations) =====
+        const BASE_SHAPES = [
+          { key: "dot1", weight: 10, blocks: [{ x: 0, y: 0 }] },
+
+          {
+            key: "line2",
+            weight: 10,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+            ],
+          },
+          {
+            key: "line3",
+            weight: 9,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 2, y: 0 },
+            ],
+          },
+          {
+            key: "line4",
+            weight: 7,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 2, y: 0 },
+              { x: 3, y: 0 },
+            ],
+          },
+          {
+            key: "line5",
+            weight: 4,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 2, y: 0 },
+              { x: 3, y: 0 },
+              { x: 4, y: 0 },
+            ],
+          },
+
+          {
+            key: "square2",
+            weight: 8,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 0, y: 1 },
+              { x: 1, y: 1 },
+            ],
+          },
+
+          {
+            key: "rect3x2",
+            weight: 5,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 2, y: 0 },
+              { x: 0, y: 1 },
+              { x: 1, y: 1 },
+              { x: 2, y: 1 },
+            ],
+          },
+
+          {
+            key: "L3",
+            weight: 9,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 0, y: 1 },
+              { x: 1, y: 1 },
+            ],
+          },
+          {
+            key: "L4",
+            weight: 6,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 0, y: 1 },
+              { x: 0, y: 2 },
+              { x: 1, y: 2 },
+            ],
+          },
+
+          {
+            key: "T4",
+            weight: 5,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 2, y: 0 },
+              { x: 1, y: 1 },
+            ],
+          },
+
+          {
+            key: "Z4",
+            weight: 5,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 1, y: 1 },
+              { x: 2, y: 1 },
+            ],
+          },
+
+          {
+            key: "P5",
+            weight: 3,
+            blocks: [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 0, y: 1 },
+              { x: 1, y: 1 },
+              { x: 0, y: 2 },
+            ],
+          },
+
+          {
+            key: "plus5",
+            weight: 2,
+            blocks: [
+              { x: 1, y: 0 },
+              { x: 0, y: 1 },
+              { x: 1, y: 1 },
+              { x: 2, y: 1 },
+              { x: 1, y: 2 },
+            ],
+          },
+        ];
+
+        const SHAPE_COLOR_MAP = {
+          dot1: 1,
+          line2: 2,
+          line3: 3,
+          line4: 4,
+          line5: 5,
+          square2: 6,
+          rect3x2: 7,
+          L3: 8,
+          L4: 9,
+          T4: 10,
+          Z4: 11,
+          P5: 12,
+          plus5: 13,
+        };
+
+        function colorIdForShape(shapeKey) {
+          return SHAPE_COLOR_MAP[shapeKey] || 1;
+        }
+
+        function normalizeBlocks(blocks) {
+          const minX = Math.min(...blocks.map((b) => b.x));
+          const minY = Math.min(...blocks.map((b) => b.y));
+          const nb = blocks.map((b) => ({ x: b.x - minX, y: b.y - minY }));
+          nb.sort((a, b) => a.y - b.y || a.x - b.x);
+          const w = Math.max(...nb.map((b) => b.x)) + 1;
+          const h = Math.max(...nb.map((b) => b.y)) + 1;
+          return { blocks: nb, w, h };
+        }
+
+        function rotate90(blocks) {
+          const r = blocks.map((b) => ({ x: b.y, y: -b.x }));
+          return normalizeBlocks(r).blocks;
+        }
+
+        function blocksKey(blocks) {
+          return blocks.map((b) => `${b.x},${b.y}`).join(";");
+        }
+
+        function genAllPieces() {
+          const pieces = [];
+          const seen = new Set();
+
+          for (const base of BASE_SHAPES) {
+            let cur = normalizeBlocks(base.blocks).blocks;
+            for (let r = 0; r < 4; r++) {
+              const n = normalizeBlocks(cur);
+              const k = `${base.key}:${blocksKey(n.blocks)}`;
+              if (!seen.has(k)) {
+                seen.add(k);
+                pieces.push({
+                  shapeKey: base.key,
+                  variantKey: `${base.key}_r${r}`,
+                  colorId: colorIdForShape(base.key),
+                  weight: base.weight,
+                  blocks: n.blocks,
+                  w: n.w,
+                  h: n.h,
+                });
+              }
+              cur = rotate90(cur);
+            }
+          }
+          return pieces;
+        }
+
+        const ALL_PIECES = genAllPieces();
+        const TOTAL_WEIGHT = ALL_PIECES.reduce((s, p) => s + p.weight, 0);
+
+        function pickRandomPiece() {
+          let r = Math.random() * TOTAL_WEIGHT;
+          for (const p of ALL_PIECES) {
+            r -= p.weight;
+            if (r <= 0) return structuredClone(p);
+          }
+          return structuredClone(ALL_PIECES[ALL_PIECES.length - 1]);
+        }
+
+        // ===== DOM refs =====
+        const el = {
+          screenHome: document.getElementById("screenHome"),
+          screenGame: document.getElementById("screenGame"),
+          screenOver: document.getElementById("screenOver"),
+
+          board: document.getElementById("board"),
+          tray: document.getElementById("tray"),
+
+          homeBest: document.getElementById("homeBest"),
+          score: document.getElementById("score"),
+          best: document.getElementById("best"),
+
+          overMsg: document.getElementById("overMsg"),
+          overScore: document.getElementById("overScore"),
+          overBest: document.getElementById("overBest"),
+
+          toast: document.getElementById("toast"),
+
+          modalback: document.getElementById("modalback"),
+          btnCloseModal: document.getElementById("btnCloseModal"),
+          btnOkModal: document.getElementById("btnOkModal"),
+          btnResetBest: document.getElementById("btnResetBest"),
+          swTheme: document.getElementById("swTheme"),
+          swEffects: document.getElementById("swEffects"),
+
+          btnStart: document.getElementById("btnStart"),
+          btnAgain: document.getElementById("btnAgain"),
+          btnHome: document.getElementById("btnHome"),
+          btnRestart: document.getElementById("btnRestart"),
+          btnSettingsHome: document.getElementById("btnSettingsHome"),
+          btnSettingsGame: document.getElementById("btnSettingsGame"),
+
+          btnUndo: document.getElementById("btnUndo"),
+          btnUndoOver: document.getElementById("btnUndoOver"),
+          btnCopy: document.getElementById("btnCopy"),
+        };
+
+        function loadBest() {
+          const v = Number(localStorage.getItem(LS_BEST) || "0");
+          return Number.isFinite(v) ? v : 0;
+        }
+        function saveBest(v) {
+          localStorage.setItem(LS_BEST, String(v));
+        }
+
+        function loadSettings() {
+          try {
+            const raw = localStorage.getItem(LS_SETTINGS);
+            if (!raw) return { ...DEFAULT_SETTINGS };
+            const obj = JSON.parse(raw);
+            return { ...DEFAULT_SETTINGS, ...obj };
+          } catch {
+            return { ...DEFAULT_SETTINGS };
+          }
+        }
+        function saveSettings(s) {
+          localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+        }
+
+        // ===== App state =====
+        const app = {
+          view: "home",
+          settings: loadSettings(),
+          bestScore: loadBest(),
+          game: null,
+          undo: null, // 直前状態のスナップショット（1手のみ）
+          drag: { active: false },
+          preview: [],
+        };
+
+        function showScreen(name) {
+          app.view = name;
+          el.screenHome.classList.toggle("active", name === "home");
+          el.screenGame.classList.toggle("active", name === "game");
+          el.screenOver.classList.toggle("active", name === "over");
+        }
+
+        function toast(msg, ms = 900) {
+          el.toast.textContent = msg;
+          el.toast.style.display = "block";
+          clearTimeout(toast._t);
+          toast._t = setTimeout(() => {
+            el.toast.style.display = "none";
+          }, ms);
+        }
+
+        function applyTheme() {
+          const t = app.settings.theme;
+          document.body.classList.toggle("theme-light", t === "light");
+          document.body.classList.toggle("theme-dark", t !== "light");
+          el.swTheme.textContent = t === "light" ? "Light" : "Dark";
+          el.swEffects.textContent = app.settings.effects.toUpperCase();
+        }
+
+        function setUndoEnabled(enabled) {
+          el.btnUndo.disabled = !enabled;
+          el.btnUndoOver.disabled = !enabled;
+        }
+
+        // ===== Board helpers =====
+        function emptyBoard() {
+          return Array.from({ length: 8 }, () =>
+            Array.from({ length: 8 }, () => 0)
+          );
+        }
+
+        function cloneBoard(b) {
+          return b.map((row) => row.slice());
+        }
+
+        function canPlace(board, piece, at) {
+          for (const bl of piece.blocks) {
+            const r = at.row + bl.y;
+            const c = at.col + bl.x;
+            if (r < 0 || r > 7 || c < 0 || c > 7) return false;
+            if (board[r][c] !== 0) return false;
+          }
+          return true;
+        }
+
+        function place(board, piece, at) {
+          const nb = cloneBoard(board);
+          const colorId = piece.colorId || colorIdForShape(piece.shapeKey);
+          for (const bl of piece.blocks) {
+            nb[at.row + bl.y][at.col + bl.x] = colorId;
+          }
+          return nb;
+        }
+
+        function detectClears(board) {
+          const rows = [];
+          const cols = [];
+          for (let r = 0; r < 8; r++) {
+            let full = true;
+            for (let c = 0; c < 8; c++) {
+              if (board[r][c] === 0) {
+                full = false;
+                break;
+              }
+            }
+            if (full) rows.push(r);
+          }
+          for (let c = 0; c < 8; c++) {
+            let full = true;
+            for (let r = 0; r < 8; r++) {
+              if (board[r][c] === 0) {
+                full = false;
+                break;
+              }
+            }
+            if (full) cols.push(c);
+          }
+          return { rows, cols };
+        }
+
+        function applyClears(board, clears) {
+          const nb = cloneBoard(board);
+          for (const r of clears.rows) {
+            for (let c = 0; c < 8; c++) nb[r][c] = 0;
+          }
+          for (const c of clears.cols) {
+            for (let r = 0; r < 8; r++) nb[r][c] = 0;
+          }
+          return nb;
+        }
+
+        function isPlaceableAnywhere(board, piece) {
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              if (canPlace(board, piece, { row: r, col: c })) return true;
+            }
+          }
+          return false;
+        }
+
+        function drawPiecePreferPlaceable(board, tries = 30) {
+          for (let i = 0; i < tries; i++) {
+            const p = pickRandomPiece();
+            if (isPlaceableAnywhere(board, p)) return p;
+          }
+          return pickRandomPiece();
+        }
+
+        // ===== UI render =====
+        const boardCells = [];
+        function initBoardDOM() {
+          el.board.innerHTML = "";
+          boardCells.length = 0;
+          for (let i = 0; i < 64; i++) {
+            const d = document.createElement("div");
+            d.className = "cell";
+            d.dataset.idx = String(i);
+            el.board.appendChild(d);
+            boardCells.push(d);
+          }
+        }
+
+        function clearPreview() {
+          for (const idx of app.preview) {
+            boardCells[idx].classList.remove("preview", "invalid");
+          }
+          app.preview = [];
+        }
+
+        function renderBoard() {
+          const b = app.game.board;
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              const idx = r * 8 + c;
+              const cell = boardCells[idx];
+              const val = b[r][c];
+              cell.classList.toggle("filled", val !== 0);
+              if (val !== 0) {
+                cell.dataset.color = String(val);
+              } else {
+                delete cell.dataset.color;
+              }
+            }
+          }
+        }
+
+        function renderHUD() {
+          el.score.textContent = String(app.game.score);
+          el.best.textContent = `Best: ${app.bestScore}`;
+          setUndoEnabled(!!app.undo);
+        }
+
+        function renderHome() {
+          el.homeBest.textContent = String(app.bestScore);
+        }
+
+        function renderOver() {
+          el.overScore.textContent = String(app.game.score);
+          el.overBest.textContent = String(app.bestScore);
+          el.overMsg.textContent =
+            app.game.score >= app.bestScore
+              ? "ベスト更新！"
+              : "おつかれさまでした。";
+          setUndoEnabled(!!app.undo);
+        }
+
+        function renderTray() {
+          el.tray.innerHTML = "";
+          for (const piece of app.game.hand) {
+            const card = document.createElement("div");
+            card.className = "piece-card";
+            card.dataset.pieceId = piece.id;
+
+            const pieceEl = document.createElement("div");
+            pieceEl.className = "piece";
+            pieceEl.dataset.pieceId = piece.id;
+            pieceEl.dataset.color = String(
+              piece.colorId || colorIdForShape(piece.shapeKey)
+            );
+
+            card.appendChild(pieceEl);
+            el.tray.appendChild(card);
+
+            for (const bl of piece.blocks) {
+              const b = document.createElement("div");
+              b.className = "pblock";
+              b.style.left = `calc(var(--u) * ${bl.x})`;
+              b.style.top = `calc(var(--u) * ${bl.y})`;
+              pieceEl.appendChild(b);
+            }
+          }
+
+          for (const card of el.tray.querySelectorAll(".piece-card")) {
+            const pid = card.dataset.pieceId;
+            const piece = app.game.hand.find((p) => p.id === pid);
+            const pieceEl = card.querySelector(".piece");
+            const rect = card.getBoundingClientRect();
+            const pad = 10;
+            const usableW = Math.max(80, rect.width - pad * 2);
+            const usableH = Math.max(80, rect.height - pad * 2);
+            const maxDim = Math.max(piece.w, piece.h);
+            const u = Math.floor(Math.min(usableW, usableH) / maxDim);
+            pieceEl.style.setProperty("--u", `${u}px`);
+          }
+        }
+
+        function makePiece(proto) {
+          return { ...proto, id: crypto.randomUUID() };
+        }
+
+        function newGame() {
+          const g = {
+            board: emptyBoard(),
+            hand: [],
+            score: 0,
+            combo: 0,
+          };
+          for (let i = 0; i < 3; i++) {
+            g.hand.push(makePiece(drawPiecePreferPlaceable(g.board)));
+          }
+          return g;
+        }
+
+        // ===== Drag logic =====
+        function nearestGrabBlock(pieceEl, piece, clientX, clientY) {
+          const rect = pieceEl.getBoundingClientRect();
+          const uStr = getComputedStyle(pieceEl).getPropertyValue("--u").trim();
+          const u = Math.max(1, parseFloat(uStr || "24"));
+          const lx = (clientX - rect.left) / u;
+          const ly = (clientY - rect.top) / u;
+
+          let best = piece.blocks[0];
+          let bestD = Infinity;
+          for (const bl of piece.blocks) {
+            const cx = bl.x + 0.5;
+            const cy = bl.y + 0.5;
+            const dx = lx - cx;
+            const dy = ly - cy;
+            const d = dx * dx + dy * dy;
+            if (d < bestD) {
+              bestD = d;
+              best = bl;
+            }
+          }
+          return { x: best.x, y: best.y };
+        }
+
+        function boardMetrics() {
+          const rect = el.board.getBoundingClientRect();
+          const gap = parseFloat(getComputedStyle(el.board).gap || "0");
+          const size = rect.width - 20;
+          const cell = (size - gap * 7) / 8;
+          const step = cell + gap;
+          const originLeft = rect.left + 10;
+          const originTop = rect.top + 10;
+          return { gap, cell, step, originLeft, originTop, size };
+        }
+
+        function pointerToCell(clientX, clientY) {
+          const m = boardMetrics();
+          const x = clientX - m.originLeft;
+          const y = clientY - m.originTop;
+          if (x < 0 || y < 0 || x > m.size || y > m.size) return null;
+          const col = Math.floor(x / m.step);
+          const row = Math.floor(y / m.step);
+          if (row < 0 || row > 7 || col < 0 || col > 7) return null;
+          return { row, col };
+        }
+
+        function setPreview(piece, anchor, valid) {
+          clearPreview();
+          const idxs = [];
+          for (const bl of piece.blocks) {
+            const r = anchor.row + bl.y;
+            const c = anchor.col + bl.x;
+            if (r < 0 || r > 7 || c < 0 || c > 7) continue;
+            idxs.push(r * 8 + c);
+          }
+          for (const idx of idxs) {
+            boardCells[idx].classList.add("preview");
+            if (!valid) boardCells[idx].classList.add("invalid");
+          }
+          app.preview = idxs;
+        }
+
+        function snapshotForUndo() {
+          // 1手戻し用：ゲーム状態を丸ごとコピー
+          app.undo = structuredClone(app.game);
+          setUndoEnabled(true);
+        }
+
+        function applyUndo() {
+          if (!app.undo) return;
+          app.game = app.undo;
+          app.undo = null;
+          setUndoEnabled(false);
+          initBoardDOM();
+          renderBoard();
+          renderHUD();
+          renderTray();
+          toast("1手戻しました");
+        }
+
+        function onTrayPointerDown(e) {
+          const card = e.target.closest(".piece-card");
+          if (!card || !app.game) return;
+
+          const pid = card.dataset.pieceId;
+          const piece = app.game.hand.find((p) => p.id === pid);
+          if (!piece) return;
+
+          const pieceEl = card.querySelector(".piece");
+          const grab = nearestGrabBlock(pieceEl, piece, e.clientX, e.clientY);
+
+          app.drag = {
+            active: true,
+            pieceId: pid,
+            pointerId: e.pointerId,
+            grab,
+            canDrop: false,
+            anchor: null,
+          };
+
+          card.setPointerCapture(e.pointerId);
+          e.preventDefault();
+        }
+
+        function onTrayPointerMove(e) {
+          if (!app.drag.active) return;
+          if (e.pointerId !== app.drag.pointerId) return;
+
+          const piece = app.game.hand.find((p) => p.id === app.drag.pieceId);
+          if (!piece) return;
+
+          const hover = pointerToCell(e.clientX, e.clientY);
+          if (!hover) {
+            clearPreview();
+            app.drag.canDrop = false;
+            app.drag.anchor = null;
+            return;
+          }
+
+          const anchor = {
+            row: hover.row - app.drag.grab.y,
+            col: hover.col - app.drag.grab.x,
+          };
+          const valid = canPlace(app.game.board, piece, anchor);
+
+          setPreview(piece, anchor, valid);
+          app.drag.canDrop = valid;
+          app.drag.anchor = anchor;
+        }
+
+        function onTrayPointerUp(e) {
+          if (!app.drag.active) return;
+          if (e.pointerId !== app.drag.pointerId) return;
+
+          const pid = app.drag.pieceId;
+          const piece = app.game.hand.find((p) => p.id === pid);
+
+          if (piece && app.drag.canDrop && app.drag.anchor) {
+            // Undo snapshot BEFORE applying this move
+            snapshotForUndo();
+
+            const placedCells = piece.blocks.length;
+            let board2 = place(app.game.board, piece, app.drag.anchor);
+
+            const clears = detectClears(board2);
+            const lines = clears.rows.length + clears.cols.length;
+
+            let add = placedCells * 5;
+            if (lines > 0) {
+              let mult = 1.0;
+              if (lines === 2) mult = 1.2;
+              if (lines === 3) mult = 1.5;
+              if (lines >= 4) mult = 2.0;
+              add += Math.round(lines * 100 * mult);
+              app.game.combo += 1;
+              add += app.game.combo * 50;
+              board2 = applyClears(board2, clears);
+              toast(lines >= 2 ? `${lines}ライン消去 +${add}` : `消去 +${add}`);
+            } else {
+              app.game.combo = 0;
+            }
+
+            app.game.score += add;
+            app.game.board = board2;
+
+            app.game.hand = app.game.hand.filter((p) => p.id !== pid);
+
+            while (app.game.hand.length < 3) {
+              app.game.hand.push(
+                makePiece(drawPiecePreferPlaceable(app.game.board))
+              );
+            }
+
+            if (app.game.score > app.bestScore) {
+              app.bestScore = app.game.score;
+              saveBest(app.bestScore);
+            }
+
+            renderBoard();
+            renderHUD();
+            renderTray();
+
+            const any = app.game.hand.some((p) =>
+              isPlaceableAnywhere(app.game.board, p)
+            );
+            if (!any) {
+              clearPreview();
+              renderOver();
+              showScreen("over");
+            }
+          }
+
+          clearPreview();
+          app.drag = { active: false };
+        }
+
+        function onTrayPointerCancel() {
+          if (!app.drag.active) return;
+          clearPreview();
+          app.drag = { active: false };
+        }
+
+        // ===== Modal =====
+        function openModal() {
+          el.modalback.style.display = "flex";
+          el.modalback.setAttribute("aria-hidden", "false");
+        }
+        function closeModal() {
+          el.modalback.style.display = "none";
+          el.modalback.setAttribute("aria-hidden", "true");
+        }
+
+        // ===== Copy result =====
+        async function copyResult() {
+          if (!app.game) return;
+          const dt = new Date().toLocaleString("ja-JP");
+          const text = `Private Block Puzzle
+Score: ${app.game.score}
+Best: ${app.bestScore}
+Date: ${dt}
+URL: ${location.href}`;
+          try {
+            await navigator.clipboard.writeText(text);
+            toast("結果をコピーしました");
+          } catch {
+            // fallback
+            window.prompt(
+              "コピーできない環境のため、以下を手動コピーしてください。",
+              text
+            );
+          }
+        }
+
+        // ===== Actions =====
+        function startFreshGame() {
+          app.game = newGame();
+          app.undo = null;
+          initBoardDOM();
+          renderBoard();
+          renderHUD();
+          renderTray();
+          showScreen("game");
+        }
+
+        el.btnStart.addEventListener("click", startFreshGame);
+        el.btnAgain.addEventListener("click", startFreshGame);
+
+        el.btnHome.addEventListener("click", () => {
+          app.game = null;
+          app.undo = null;
+          renderHome();
+          showScreen("home");
+        });
+
+        el.btnRestart.addEventListener("click", () => {
+          const ok = confirm(
+            "リスタートしますか？（現在のスコアは失われます）"
+          );
+          if (!ok) return;
+          startFreshGame();
+          toast("リスタート");
+        });
+
+        el.btnUndo.addEventListener("click", () => {
+          if (!app.game || !app.undo) return;
+          applyUndo();
+        });
+
+        el.btnUndoOver.addEventListener("click", () => {
+          if (!app.game || !app.undo) return;
+          applyUndo();
+          showScreen("game");
+        });
+
+        el.btnCopy.addEventListener("click", copyResult);
+
+        el.btnSettingsHome.addEventListener("click", openModal);
+        el.btnSettingsGame.addEventListener("click", openModal);
+        el.btnCloseModal.addEventListener("click", closeModal);
+        el.btnOkModal.addEventListener("click", () => {
+          saveSettings(app.settings);
+          closeModal();
+        });
+
+        el.btnResetBest.addEventListener("click", () => {
+          const ok = confirm("自己ベストをリセットしますか？");
+          if (!ok) return;
+          app.bestScore = 0;
+          saveBest(0);
+          renderHome();
+          if (app.game) renderHUD();
+          toast("ベストをリセット");
+        });
+
+        el.swTheme.addEventListener("click", () => {
+          app.settings.theme =
+            app.settings.theme === "light" ? "dark" : "light";
+          applyTheme();
+          saveSettings(app.settings);
+        });
+
+        el.swEffects.addEventListener("click", () => {
+          const cur = app.settings.effects;
+          app.settings.effects =
+            cur === "off" ? "low" : cur === "low" ? "high" : "off";
+          applyTheme();
+          saveSettings(app.settings);
+        });
+
+        // tray pointer events
+        el.tray.addEventListener("pointerdown", onTrayPointerDown);
+        el.tray.addEventListener("pointermove", onTrayPointerMove);
+        el.tray.addEventListener("pointerup", onTrayPointerUp);
+        el.tray.addEventListener("pointercancel", onTrayPointerCancel);
+
+        // init
+        applyTheme();
+        renderHome();
+        setUndoEnabled(false);
+        showScreen("home");
+      })();
+    </script>
+  </body>
+</html>
