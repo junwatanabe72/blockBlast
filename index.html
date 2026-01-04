@@ -614,6 +614,31 @@
           );
         }
 
+        function fxLevelUp(level) {
+          if (!fxEnabled()) return;
+          const wrap = document.createElement("div");
+          wrap.className = fxStrong() ? "fx-level strong" : "fx-level";
+
+          const title = document.createElement("div");
+          title.className = "fx-level-title";
+          title.textContent = "レベルアップ！";
+
+          const sub = document.createElement("div");
+          sub.className = "fx-level-sub";
+          sub.textContent = `レベル ${level}`;
+
+          wrap.appendChild(title);
+          wrap.appendChild(sub);
+          el.fxLayer.appendChild(wrap);
+          wrap.addEventListener(
+            "animationend",
+            () => {
+              wrap.remove();
+            },
+            { once: true }
+          );
+        }
+
         function fxFireworks(bursts = 1) {
           if (!fxEnabled()) return;
           const layerRect = el.fxLayer.getBoundingClientRect();
@@ -980,7 +1005,7 @@
           app.overMsgText = null;
           app.timeLeft = TIMER_SECONDS;
           renderHUD();
-          fxPop(`レベル${app.level}!`, "strong");
+          fxLevelUp(app.level);
           flashBoard();
           fxFireworks(3);
           startTimer();
