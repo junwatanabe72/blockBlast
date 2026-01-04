@@ -471,6 +471,7 @@
           timerId: null,
           lastTick: 0,
           overMsgText: null,
+          animLock: false,
         };
 
         function showScreen(name) {
@@ -527,6 +528,43 @@
         function renderLevel() {
           if (!el.level) return;
           el.level.textContent = `${app.level}/${MAX_LEVEL}`;
+        }
+
+        function clearIndices(clears) {
+          const idxs = new Set();
+          for (const r of clears.rows) {
+            for (let c = 0; c < 8; c++) idxs.add(r * 8 + c);
+          }
+          for (const c of clears.cols) {
+            for (let r = 0; r < 8; r++) idxs.add(r * 8 + c);
+          }
+          return [...idxs];
+        }
+
+        function playClearAnimation(idxs) {
+          if (idxs.length === 0) return Promise.resolve();
+          if (!fxEnabled()) return Promise.resolve();
+          const dur = fxStrong() ? 360 : 240;
+          app.animLock = true;
+          pauseTimer();
+          for (const idx of idxs) {
+            const cell = boardCells[idx];
+            if (!cell) continue;
+            cell.classList.add("clearing");
+            if (fxStrong()) cell.classList.add("clearing-strong");
+          }
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              for (const idx of idxs) {
+                const cell = boardCells[idx];
+                if (!cell) continue;
+                cell.classList.remove("clearing", "clearing-strong");
+              }
+              app.animLock = false;
+              resumeTimer();
+              resolve();
+            }, dur + 60);
+          });
         }
 
         function stopTimer() {
@@ -816,10 +854,10 @@
               cell.classList.toggle("filled", val !== 0);
               if (val !== 0) {
                 cell.dataset.color = String(val);
-                cell.style.background = `var(--c${val})`;
+                cell.style.backgroundColor = `var(--c${val})`;
               } else {
                 delete cell.dataset.color;
-                cell.style.background = "";
+                cell.style.backgroundColor = "";
               }
             }
           }
@@ -989,9 +1027,40 @@
           toast("1手戻しました");
         }
 
+        function removeDragGhost() {
+          if (app.drag && app.drag.ghost) {
+            app.drag.ghost.remove();
+            app.drag.ghost = null;
+          }
+          if (app.drag && app.drag.card) {
+            app.drag.card.classList.remove("dragging");
+          }
+        }
+
+        function createDragGhost(piece, u) {
+          const ghost = document.createElement("div");
+          ghost.className = "piece drag-piece";
+          ghost.dataset.color = String(
+            piece.colorId || colorIdForShape(piece.shapeKey)
+          );
+          ghost.style.setProperty("--u", `${u}px`);
+          ghost.style.setProperty("--w", String(piece.w));
+          ghost.style.setProperty("--h", String(piece.h));
+          for (const bl of piece.blocks) {
+            const b = document.createElement("div");
+            b.className = "pblock";
+            b.style.left = `calc(var(--u) * ${bl.x})`;
+            b.style.top = `calc(var(--u) * ${bl.y})`;
+            ghost.appendChild(b);
+          }
+          return ghost;
+        }
+
         function endGame(message) {
           stopTimer();
           clearPreview();
+          removeDragGhost();
+          app.animLock = false;
           app.overMsgText = message || null;
           renderOver();
           showScreen("over");
@@ -1023,6 +1092,7 @@
         }
 
         function onTrayPointerDown(e) {
+          if (app.animLock) return;
           const card = e.target.closest(".piece-card");
           if (!card || !app.game) return;
 
@@ -1032,12 +1102,26 @@
 
           const pieceEl = card.querySelector(".piece");
           const grab = nearestGrabBlock(pieceEl, piece, e.clientX, e.clientY);
+          const rect = pieceEl.getBoundingClientRect();
+          const uStr = getComputedStyle(pieceEl).getPropertyValue("--u").trim();
+          const u = Math.max(1, parseFloat(uStr || "24"));
+          const offsetX = e.clientX - rect.left;
+          const offsetY = e.clientY - rect.top;
+          const ghost = createDragGhost(piece, u);
+          const layerRect = el.fxLayer.getBoundingClientRect();
+          ghost.style.left = `${e.clientX - layerRect.left - offsetX}px`;
+          ghost.style.top = `${e.clientY - layerRect.top - offsetY}px`;
+          el.fxLayer.appendChild(ghost);
+          card.classList.add("dragging");
 
           app.drag = {
             active: true,
             pieceId: pid,
             pointerId: e.pointerId,
             grab,
+            ghost,
+            card,
+            offset: { x: offsetX, y: offsetY },
             canDrop: false,
             anchor: null,
           };
@@ -1052,6 +1136,17 @@
 
           const piece = app.game.hand.find((p) => p.id === app.drag.pieceId);
           if (!piece) return;
+
+          if (app.drag.ghost) {
+            const layerRect = el.fxLayer.getBoundingClientRect();
+            app.drag.ghost.style.left = `${
+              e.clientX - layerRect.left - app.drag.offset.x
+            }px`;
+            app.drag.ghost.style.top = `${
+              e.clientY - layerRect.top - app.drag.offset.y
+            }px`;
+            app.drag.ghost.classList.remove("snapped");
+          }
 
           const hover = pointerToCell(e.clientX, e.clientY);
           if (!hover) {
@@ -1070,9 +1165,19 @@
           setPreview(piece, anchor, valid);
           app.drag.canDrop = valid;
           app.drag.anchor = anchor;
+
+          if (valid && app.drag.ghost) {
+            const m = boardMetrics();
+            const layerRect = el.fxLayer.getBoundingClientRect();
+            const snapX = m.originLeft + anchor.col * m.step;
+            const snapY = m.originTop + anchor.row * m.step;
+            app.drag.ghost.style.left = `${snapX - layerRect.left}px`;
+            app.drag.ghost.style.top = `${snapY - layerRect.top}px`;
+            app.drag.ghost.classList.add("snapped");
+          }
         }
 
-        function onTrayPointerUp(e) {
+        async function onTrayPointerUp(e) {
           if (!app.drag.active) return;
           if (e.pointerId !== app.drag.pointerId) return;
 
@@ -1102,7 +1207,6 @@
               app.game.combo += 1;
               add += app.game.combo * 50;
               app.game.linesCleared += lines;
-              board2 = applyClears(board2, clears);
               toast(lines >= 2 ? `${lines}ライン消去 +${add}` : `消去 +${add}`);
             } else {
               app.game.combo = 0;
@@ -1139,6 +1243,16 @@
               fxPop("ベスト!");
               fxFireworks(2);
             }
+            if (lines > 0) {
+              const idxs = clearIndices(clears);
+              await playClearAnimation(idxs);
+              board2 = applyClears(board2, clears);
+              app.game.board = board2;
+              renderBoard();
+              renderHUD();
+              renderTray();
+            }
+
             if (app.game.linesCleared >= currentGoal()) {
               if (app.level < MAX_LEVEL) {
                 levelUp();
@@ -1158,12 +1272,14 @@
           }
 
           clearPreview();
+          removeDragGhost();
           app.drag = { active: false };
         }
 
         function onTrayPointerCancel() {
           if (!app.drag.active) return;
           clearPreview();
+          removeDragGhost();
           app.drag = { active: false };
         }
 
@@ -1173,6 +1289,7 @@
           el.modalback.setAttribute("aria-hidden", "false");
           document.body.classList.add("modal-open");
           clearPreview();
+          removeDragGhost();
           app.drag = { active: false };
           pauseTimer();
         }
