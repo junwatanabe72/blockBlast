@@ -394,6 +394,11 @@ body.theme-light .board {
   border-color: rgba(15, 23, 42, 0.16);
 }
 
+body.theme-light .piece-card {
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.25);
+}
+
 body.modal-open .app {
   pointer-events: none;
 }
