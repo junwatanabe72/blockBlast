@@ -887,10 +887,14 @@
         function openModal() {
           el.modalback.style.display = "flex";
           el.modalback.setAttribute("aria-hidden", "false");
+          document.body.classList.add("modal-open");
+          clearPreview();
+          app.drag = { active: false };
         }
         function closeModal() {
           el.modalback.style.display = "none";
           el.modalback.setAttribute("aria-hidden", "true");
+          document.body.classList.remove("modal-open");
         }
 
         // ===== Copy result =====

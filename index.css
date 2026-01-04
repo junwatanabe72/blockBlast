@@ -96,6 +96,8 @@ body.theme-light {
   padding-top: calc(var(--app-pad) + env(safe-area-inset-top));
   padding-bottom: calc(var(--app-pad) + env(safe-area-inset-bottom));
   user-select: none;
+  position: relative;
+  z-index: 1;
 }
 
 .screen {
@@ -329,6 +331,7 @@ body.theme-light {
   font-weight: 700;
   box-shadow: var(--shadow);
   display: none;
+  z-index: 60;
 }
 
 .modalback {
@@ -341,6 +344,7 @@ body.theme-light {
   justify-content: center;
   padding: 20px;
   touch-action: none;
+  z-index: 50;
 }
 
 .modal {
@@ -373,8 +377,8 @@ body.theme-light {
 }
 
 body.theme-light .cell {
-  background: #e5e7eb;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.14);
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.2);
 }
 
 body.theme-light .cell.preview {
@@ -383,6 +387,19 @@ body.theme-light .cell.preview {
 
 body.theme-light .cell.preview.invalid {
   box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.8);
+}
+
+body.theme-light .board {
+  background: #e2e8f0;
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+body.modal-open .app {
+  pointer-events: none;
+}
+
+body.modal-open .modalback {
+  pointer-events: auto;
 }
 
 .footer-actions {
