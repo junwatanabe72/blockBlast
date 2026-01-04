@@ -243,6 +243,40 @@ body.theme-light {
   font-size: 13px;
 }
 
+.hud-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat {
+  background: var(--panel2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.stat .label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.stat .value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.stat .value.danger {
+  color: var(--danger);
+}
+
+.stat .value.done {
+  color: var(--success);
+}
+
 .boardwrap {
   display: grid;
   place-items: center;

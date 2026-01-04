@@ -84,6 +84,16 @@
               <div class="score" id="score">0</div>
               <div class="best" id="best">Best: 0</div>
             </div>
+            <div class="hud-meta">
+              <div class="stat">
+                <div class="label">残り時間</div>
+                <div class="value" id="timer">1:30</div>
+              </div>
+              <div class="stat">
+                <div class="label">残りライン</div>
+                <div class="value" id="linesLeft">10</div>
+              </div>
+            </div>
             <div class="row" style="justify-content: flex-end; flex-wrap: wrap">
               <button class="btn small" id="btnUndo" disabled>Undo</button>
               <button class="btn small" id="btnRestart">リスタート</button>
@@ -162,6 +172,8 @@
           theme: "dark", // "dark" | "light"
           effects: "low", // "off" | "low" | "high"（現状は表示のみ。演出拡張時に使用）
         };
+        const GOAL_LINES = 10;
+        const TIMER_SECONDS = 90;
 
         // ===== Piece definitions (base + auto rotations) =====
         const BASE_SHAPES = [
@@ -388,6 +400,8 @@
           homeBest: document.getElementById("homeBest"),
           score: document.getElementById("score"),
           best: document.getElementById("best"),
+          timer: document.getElementById("timer"),
+          linesLeft: document.getElementById("linesLeft"),
 
           overMsg: document.getElementById("overMsg"),
           overScore: document.getElementById("overScore"),
@@ -446,6 +460,10 @@
           undo: null, // 直前状態のスナップショット（1手のみ）
           drag: { active: false },
           preview: [],
+          timeLeft: TIMER_SECONDS,
+          timerId: null,
+          lastTick: 0,
+          overMsgText: null,
         };
 
         function showScreen(name) {
@@ -473,6 +491,60 @@
         function setUndoEnabled(enabled) {
           el.btnUndo.disabled = !enabled;
           el.btnUndoOver.disabled = !enabled;
+        }
+
+        function formatTime(sec) {
+          const s = Math.max(0, Math.ceil(sec));
+          const m = Math.floor(s / 60);
+          const r = s % 60;
+          return `${m}:${String(r).padStart(2, "0")}`;
+        }
+
+        function renderTimer() {
+          if (!el.timer) return;
+          el.timer.textContent = formatTime(app.timeLeft);
+          el.timer.classList.toggle("danger", app.timeLeft <= 10);
+        }
+
+        function renderLines() {
+          if (!el.linesLeft || !app.game) return;
+          const left = Math.max(0, GOAL_LINES - app.game.linesCleared);
+          el.linesLeft.textContent = String(left);
+          el.linesLeft.classList.toggle("done", left === 0);
+        }
+
+        function stopTimer() {
+          if (app.timerId) {
+            clearInterval(app.timerId);
+            app.timerId = null;
+          }
+        }
+
+        function startTimer() {
+          stopTimer();
+          if (!app.game) return;
+          app.lastTick = performance.now();
+          app.timerId = setInterval(() => {
+            if (!app.game || app.view !== "game") return;
+            const now = performance.now();
+            const delta = (now - app.lastTick) / 1000;
+            app.lastTick = now;
+            app.timeLeft = Math.max(0, app.timeLeft - delta);
+            renderTimer();
+            if (app.timeLeft <= 0) {
+              endGame("時間切れ！");
+            }
+          }, 200);
+        }
+
+        function pauseTimer() {
+          stopTimer();
+        }
+
+        function resumeTimer() {
+          if (app.game && app.view === "game" && app.timeLeft > 0) {
+            startTimer();
+          }
         }
 
         function fxEnabled() {
@@ -710,6 +782,8 @@
           el.score.textContent = String(app.game.score);
           el.best.textContent = `Best: ${app.bestScore}`;
           setUndoEnabled(!!app.undo);
+          renderTimer();
+          renderLines();
         }
 
         function renderHome() {
@@ -720,9 +794,10 @@
           el.overScore.textContent = String(app.game.score);
           el.overBest.textContent = String(app.bestScore);
           el.overMsg.textContent =
-            app.game.score >= app.bestScore
+            app.overMsgText ||
+            (app.game.score >= app.bestScore
               ? "ベスト更新！"
-              : "おつかれさまでした。";
+              : "おつかれさまでした。");
           setUndoEnabled(!!app.undo);
         }
 
@@ -778,6 +853,7 @@
             hand: [],
             score: 0,
             combo: 0,
+            linesCleared: 0,
           };
           for (let i = 0; i < 3; i++) {
             g.hand.push(makePiece(drawPiecePreferPlaceable(g.board)));
@@ -865,6 +941,14 @@
           toast("1手戻しました");
         }
 
+        function endGame(message) {
+          stopTimer();
+          clearPreview();
+          app.overMsgText = message || null;
+          renderOver();
+          showScreen("over");
+        }
+
         function onTrayPointerDown(e) {
           const card = e.target.closest(".piece-card");
           if (!card || !app.game) return;
@@ -944,6 +1028,7 @@
               add += Math.round(lines * 100 * mult);
               app.game.combo += 1;
               add += app.game.combo * 50;
+              app.game.linesCleared += lines;
               board2 = applyClears(board2, clears);
               toast(lines >= 2 ? `${lines}ライン消去 +${add}` : `消去 +${add}`);
             } else {
@@ -981,14 +1066,18 @@
               fxPop("ベスト!");
               fxFireworks(2);
             }
+            if (app.game.linesCleared >= GOAL_LINES) {
+              fxPop("クリア！");
+              fxFireworks(3);
+              endGame("クリア！");
+              return;
+            }
 
             const any = app.game.hand.some((p) =>
               isPlaceableAnywhere(app.game.board, p)
             );
             if (!any) {
-              clearPreview();
-              renderOver();
-              showScreen("over");
+              endGame();
             }
           }
 
@@ -1009,11 +1098,13 @@
           document.body.classList.add("modal-open");
           clearPreview();
           app.drag = { active: false };
+          pauseTimer();
         }
         function closeModal() {
           el.modalback.style.display = "none";
           el.modalback.setAttribute("aria-hidden", "true");
           document.body.classList.remove("modal-open");
+          resumeTimer();
         }
 
         // ===== Copy result =====
@@ -1041,11 +1132,14 @@ URL: ${location.href}`;
         function startFreshGame() {
           app.game = newGame();
           app.undo = null;
+          app.overMsgText = null;
+          app.timeLeft = TIMER_SECONDS;
           initBoardDOM();
           renderBoard();
           renderHUD();
           renderTray();
           showScreen("game");
+          startTimer();
         }
 
         el.btnStart.addEventListener("click", startFreshGame);
@@ -1054,6 +1148,8 @@ URL: ${location.href}`;
         el.btnHome.addEventListener("click", () => {
           app.game = null;
           app.undo = null;
+          app.overMsgText = null;
+          stopTimer();
           renderHome();
           showScreen("home");
         });
