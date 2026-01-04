@@ -520,6 +520,50 @@
           );
         }
 
+        function fxFireworks(bursts = 1) {
+          if (!fxEnabled()) return;
+          const layerRect = el.fxLayer.getBoundingClientRect();
+          const boardRect = el.board.getBoundingClientRect();
+          const baseCount = fxStrong() ? 20 : 14;
+          const baseDist = fxStrong() ? 120 : 90;
+          const dur = fxStrong() ? 900 : 650;
+          const burstNum = fxStrong() ? Math.max(2, bursts) : bursts;
+
+          for (let b = 0; b < burstNum; b++) {
+            const x =
+              boardRect.left -
+              layerRect.left +
+              Math.random() * boardRect.width;
+            const y =
+              boardRect.top -
+              layerRect.top +
+              Math.random() * boardRect.height;
+            const fw = document.createElement("div");
+            fw.className = fxStrong() ? "fx-firework strong" : "fx-firework";
+            fw.style.left = `${x}px`;
+            fw.style.top = `${y}px`;
+
+            for (let i = 0; i < baseCount; i++) {
+              const ang = Math.random() * Math.PI * 2;
+              const dist = baseDist * (0.45 + Math.random() * 0.65);
+              const dx = Math.cos(ang) * dist;
+              const dy = Math.sin(ang) * dist;
+              const s = document.createElement("span");
+              s.className = "spark";
+              s.style.setProperty("--dx", `${dx}px`);
+              s.style.setProperty("--dy", `${dy}px`);
+              s.style.setProperty("--dur", `${dur}ms`);
+              s.style.setProperty("--delay", `${Math.random() * 60}ms`);
+              const color = 1 + Math.floor(Math.random() * 13);
+              s.style.background = `var(--c${color})`;
+              fw.appendChild(s);
+            }
+
+            el.fxLayer.appendChild(fw);
+            setTimeout(() => fw.remove(), dur + 120);
+          }
+        }
+
         function animatePlaced(idxs, board) {
           if (!fxEnabled()) return;
           for (const idx of idxs) {
@@ -931,9 +975,11 @@
             if (lines > 0) {
               flashBoard();
               fxPop(lines >= 2 ? `${lines}ライン!` : "ライン消去!");
+              fxFireworks(lines >= 2 ? 2 : 1);
             }
             if (app.game.score >= app.bestScore && app.game.score === app.bestScore) {
               fxPop("ベスト!");
+              fxFireworks(2);
             }
 
             const any = app.game.hand.some((p) =>

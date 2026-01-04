@@ -351,6 +351,31 @@ body.theme-light {
   z-index: 20;
 }
 
+.fx-firework {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%);
+}
+
+.fx-firework .spark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+  animation: spark var(--dur, 650ms) ease-out forwards;
+  animation-delay: var(--delay, 0ms);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+}
+
+.fx-firework.strong .spark {
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.45);
+}
+
 .fx-pop {
   position: absolute;
   left: 50%;
@@ -553,6 +578,13 @@ body.modal-open .modalback {
   100% {
     opacity: 0;
     transform: translate(-50%, -70%) scale(1.05);
+  }
+}
+
+@keyframes spark {
+  to {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0);
   }
 }
 
