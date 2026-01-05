@@ -1109,8 +1109,15 @@
           const offsetY = e.clientY - rect.top;
           const ghost = createDragGhost(piece, u);
           const layerRect = el.fxLayer.getBoundingClientRect();
-          ghost.style.left = `${e.clientX - layerRect.left - offsetX}px`;
-          ghost.style.top = `${e.clientY - layerRect.top - offsetY}px`;
+          const m = boardMetrics();
+          const ghostW = u * piece.w;
+          const ghostH = u * piece.h;
+          const startX =
+            m.originLeft - layerRect.left + (m.size - ghostW) / 2;
+          const startY =
+            m.originTop - layerRect.top + (m.size - ghostH);
+          ghost.style.left = `${startX}px`;
+          ghost.style.top = `${startY}px`;
           el.fxLayer.appendChild(ghost);
           card.classList.add("dragging");
 
@@ -1121,7 +1128,12 @@
             grab,
             ghost,
             card,
-            offset: { x: offsetX, y: offsetY },
+            offset: {
+              x: e.clientX - layerRect.left - startX,
+              y: e.clientY - layerRect.top - startY,
+            },
+            unit: u,
+            lifted: true,
             canDrop: false,
             anchor: null,
           };
@@ -1139,41 +1151,53 @@
 
           if (app.drag.ghost) {
             const layerRect = el.fxLayer.getBoundingClientRect();
-            app.drag.ghost.style.left = `${
-              e.clientX - layerRect.left - app.drag.offset.x
-            }px`;
-            app.drag.ghost.style.top = `${
-              e.clientY - layerRect.top - app.drag.offset.y
-            }px`;
+            const left = e.clientX - layerRect.left - app.drag.offset.x;
+            const top = e.clientY - layerRect.top - app.drag.offset.y;
+            app.drag.ghost.style.left = `${left}px`;
+            app.drag.ghost.style.top = `${top}px`;
             app.drag.ghost.classList.remove("snapped");
-          }
-
-          const hover = pointerToCell(e.clientX, e.clientY);
-          if (!hover) {
-            clearPreview();
-            app.drag.canDrop = false;
-            app.drag.anchor = null;
-            return;
-          }
-
-          const anchor = {
-            row: hover.row - app.drag.grab.y,
-            col: hover.col - app.drag.grab.x,
-          };
-          const valid = canPlace(app.game.board, piece, anchor);
-
-          setPreview(piece, anchor, valid);
-          app.drag.canDrop = valid;
-          app.drag.anchor = anchor;
-
-          if (valid && app.drag.ghost) {
             const m = boardMetrics();
-            const layerRect = el.fxLayer.getBoundingClientRect();
-            const snapX = m.originLeft + anchor.col * m.step;
-            const snapY = m.originTop + anchor.row * m.step;
-            app.drag.ghost.style.left = `${snapX - layerRect.left}px`;
-            app.drag.ghost.style.top = `${snapY - layerRect.top}px`;
-            app.drag.ghost.classList.add("snapped");
+            const ghostLeft = layerRect.left + left;
+            const ghostTop = layerRect.top + top;
+            const ghostW = (app.drag.unit || 24) * piece.w;
+            const ghostH = (app.drag.unit || 24) * piece.h;
+            const boardLeft = m.originLeft;
+            const boardTop = m.originTop;
+            const boardRight = m.originLeft + m.size;
+            const boardBottom = m.originTop + m.size;
+
+            const intersects =
+              ghostLeft + ghostW > boardLeft &&
+              ghostLeft < boardRight &&
+              ghostTop + ghostH > boardTop &&
+              ghostTop < boardBottom;
+
+            if (!intersects) {
+              clearPreview();
+              app.drag.canDrop = false;
+              app.drag.anchor = null;
+              return;
+            }
+
+            if (app.drag.lifted) app.drag.lifted = false;
+
+            const anchor = {
+              row: Math.round((ghostTop - m.originTop) / m.step),
+              col: Math.round((ghostLeft - m.originLeft) / m.step),
+            };
+            const valid = canPlace(app.game.board, piece, anchor);
+
+            setPreview(piece, anchor, valid);
+            app.drag.canDrop = valid;
+            app.drag.anchor = anchor;
+
+            if (valid && app.drag.ghost) {
+              const snapX = m.originLeft + anchor.col * m.step;
+              const snapY = m.originTop + anchor.row * m.step;
+              app.drag.ghost.style.left = `${snapX - layerRect.left}px`;
+              app.drag.ghost.style.top = `${snapY - layerRect.top}px`;
+              app.drag.ghost.classList.add("snapped");
+            }
           }
         }
 
@@ -1183,16 +1207,45 @@
 
           const pid = app.drag.pieceId;
           const piece = app.game.hand.find((p) => p.id === pid);
+          let dropAnchor = app.drag.anchor;
+          let dropValid = app.drag.canDrop;
 
-          if (piece && app.drag.canDrop && app.drag.anchor) {
+          if (piece && app.drag.ghost) {
+            const ghostRect = app.drag.ghost.getBoundingClientRect();
+            const m = boardMetrics();
+            const boardLeft = m.originLeft;
+            const boardTop = m.originTop;
+            const boardRight = m.originLeft + m.size;
+            const boardBottom = m.originTop + m.size;
+            const intersects =
+              ghostRect.right > boardLeft &&
+              ghostRect.left < boardRight &&
+              ghostRect.bottom > boardTop &&
+              ghostRect.top < boardBottom;
+
+            if (intersects) {
+              const anchor = {
+                row: Math.round((ghostRect.top - m.originTop) / m.step),
+                col: Math.round((ghostRect.left - m.originLeft) / m.step),
+              };
+              const valid = canPlace(app.game.board, piece, anchor);
+              dropAnchor = anchor;
+              dropValid = valid;
+            } else {
+              dropAnchor = null;
+              dropValid = false;
+            }
+          }
+
+          if (piece && dropValid && dropAnchor) {
             // Undo snapshot BEFORE applying this move
             snapshotForUndo();
 
             const placedCells = piece.blocks.length;
             const placedIdxs = piece.blocks.map(
-              (bl) => (app.drag.anchor.row + bl.y) * 8 + (app.drag.anchor.col + bl.x)
+              (bl) => (dropAnchor.row + bl.y) * 8 + (dropAnchor.col + bl.x)
             );
-            let board2 = place(app.game.board, piece, app.drag.anchor);
+            let board2 = place(app.game.board, piece, dropAnchor);
 
             const clears = detectClears(board2);
             const lines = clears.rows.length + clears.cols.length;
