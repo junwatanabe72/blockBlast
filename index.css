@@ -89,6 +89,102 @@ body.theme-light {
   --success: #10b981;
 }
 
+body.skin-candy {
+  --accent: #ff8fab;
+  --accent2: #f9c74f;
+  --c1: #ff8fab;
+  --c2: #ffafcc;
+  --c3: #ffd6e0;
+  --c4: #ffc6ff;
+  --c5: #bdb2ff;
+  --c6: #a0c4ff;
+  --c7: #9bf6ff;
+  --c8: #caffbf;
+  --c9: #fdffb6;
+  --c10: #ffd6a5;
+  --c11: #ffadad;
+  --c12: #fbc4ab;
+  --c13: #f72585;
+}
+
+body.skin-candy::before {
+  background: radial-gradient(900px 600px at 15% 10%, rgba(255, 143, 171, 0.24), transparent 60%),
+    radial-gradient(800px 520px at 85% 20%, rgba(249, 199, 79, 0.2), transparent 60%),
+    radial-gradient(900px 600px at 50% 90%, rgba(189, 178, 255, 0.22), transparent 60%);
+}
+
+body.skin-space {
+  --accent: #7dd3fc;
+  --accent2: #a78bfa;
+  --c1: #7dd3fc;
+  --c2: #38bdf8;
+  --c3: #0ea5e9;
+  --c4: #818cf8;
+  --c5: #a78bfa;
+  --c6: #c4b5fd;
+  --c7: #f0abfc;
+  --c8: #f472b6;
+  --c9: #fb7185;
+  --c10: #f59e0b;
+  --c11: #fde68a;
+  --c12: #34d399;
+  --c13: #22d3ee;
+}
+
+body.skin-space::before {
+  background: radial-gradient(900px 600px at 15% 10%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(800px 520px at 85% 20%, rgba(167, 139, 250, 0.22), transparent 60%),
+    radial-gradient(900px 600px at 50% 90%, rgba(244, 114, 182, 0.18), transparent 60%);
+}
+
+body.skin-animal {
+  --accent: #f59e0b;
+  --accent2: #84cc16;
+  --c1: #f59e0b;
+  --c2: #fbbf24;
+  --c3: #fde68a;
+  --c4: #a3e635;
+  --c5: #84cc16;
+  --c6: #4ade80;
+  --c7: #34d399;
+  --c8: #22c55e;
+  --c9: #f97316;
+  --c10: #fb7185;
+  --c11: #facc15;
+  --c12: #d97706;
+  --c13: #65a30d;
+}
+
+body.skin-animal::before {
+  background: radial-gradient(900px 600px at 15% 10%, rgba(245, 158, 11, 0.22), transparent 60%),
+    radial-gradient(800px 520px at 85% 20%, rgba(132, 204, 22, 0.2), transparent 60%),
+    radial-gradient(900px 600px at 50% 90%, rgba(34, 197, 94, 0.18), transparent 60%);
+}
+
+body.skin-vehicle {
+  --accent: #38bdf8;
+  --accent2: #f97316;
+  --c1: #ef4444;
+  --c2: #f97316;
+  --c3: #f59e0b;
+  --c4: #facc15;
+  --c5: #84cc16;
+  --c6: #22c55e;
+  --c7: #14b8a6;
+  --c8: #0ea5e9;
+  --c9: #6366f1;
+  --c10: #a855f7;
+  --c11: #ec4899;
+  --c12: #fb7185;
+  --c13: #94a3b8;
+}
+
+body.skin-vehicle::before {
+  background: radial-gradient(900px 600px at 15% 10%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(800px 520px at 85% 20%, rgba(249, 115, 22, 0.22), transparent 60%),
+    radial-gradient(900px 600px at 50% 90%, rgba(148, 163, 184, 0.18), transparent 60%);
+}
+
 .app {
   width: 100%;
   max-width: 560px;
@@ -488,6 +584,33 @@ body.theme-light {
   animation-duration: 1s;
 }
 
+.fx-stamp {
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  transform: translate(-50%, -50%) rotate(-2deg);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #0b0f14;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.4);
+  animation: stampPop 0.85s ease forwards;
+}
+
+.fx-stamp.great {
+  transform: translate(-50%, -50%) rotate(2deg) scale(1.05);
+  filter: saturate(1.1);
+}
+
+.fx-stamp.mega {
+  transform: translate(-50%, -50%) rotate(-3deg) scale(1.12);
+  filter: saturate(1.2);
+}
+
 .fx-level {
   position: absolute;
   left: 50%;
@@ -755,6 +878,25 @@ body.modal-open .modalback {
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes stampPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6) rotate(-6deg);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08) rotate(2deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.02) rotate(-1deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(1);
   }
 }
 

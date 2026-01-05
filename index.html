@@ -30,6 +30,13 @@
             </div>
             <button class="switch" id="swEffects">Low</button>
           </div>
+          <div class="field">
+            <div>
+              <div style="font-weight: 900">テーマ</div>
+              <div class="hint">見た目の色</div>
+            </div>
+            <button class="switch" id="swSkin">クラシック</button>
+          </div>
           <div class="hint">
             GitHub Pages
             は基本「公開URL」です。身内共有以外の用途にする場合は認証設計が必要になります。
@@ -174,7 +181,16 @@
 
         const DEFAULT_SETTINGS = {
           theme: "dark", // "dark" | "light"
-          effects: "low", // "off" | "low" | "high"（現状は表示のみ。演出拡張時に使用）
+          effects: "low", // "off" | "low" | "high"
+          skin: "classic", // "classic" | "candy" | "space"
+        };
+        const SKINS = ["classic", "candy", "space", "animal", "vehicle"];
+        const SKIN_LABEL = {
+          classic: "クラシック",
+          candy: "キャンディ",
+          space: "スペース",
+          animal: "どうぶつ",
+          vehicle: "のりもの",
         };
         const LEVEL_GOALS = [5, 8, 12];
         const MAX_LEVEL = LEVEL_GOALS.length;
@@ -420,6 +436,7 @@
           btnOkModal: document.getElementById("btnOkModal"),
           btnResetBest: document.getElementById("btnResetBest"),
           swEffects: document.getElementById("swEffects"),
+          swSkin: document.getElementById("swSkin"),
 
           btnStart: document.getElementById("btnStart"),
           btnAgain: document.getElementById("btnAgain"),
@@ -493,7 +510,15 @@
         function applyTheme() {
           document.body.classList.remove("theme-light");
           document.body.classList.add("theme-dark");
+          document.body.classList.remove("skin-classic", "skin-candy", "skin-space");
+          const skin = SKINS.includes(app.settings.skin)
+            ? app.settings.skin
+            : "classic";
+          document.body.classList.add(`skin-${skin}`);
           el.swEffects.textContent = app.settings.effects.toUpperCase();
+          if (el.swSkin) {
+            el.swSkin.textContent = SKIN_LABEL[skin] || skin;
+          }
         }
 
         function setUndoEnabled(enabled) {
@@ -650,6 +675,33 @@
             },
             { once: true }
           );
+        }
+
+        function fxStamp(text, variant = "good") {
+          if (!fxEnabled()) return;
+          const d = document.createElement("div");
+          let cls = "fx-stamp";
+          if (variant === "great") cls += " great";
+          if (variant === "mega") cls += " mega";
+          d.className = cls;
+          d.textContent = text;
+          el.fxLayer.appendChild(d);
+          d.addEventListener(
+            "animationend",
+            () => {
+              d.remove();
+            },
+            { once: true }
+          );
+        }
+
+        function stampForClear(lines, combo) {
+          if (combo >= 4) return { text: `れんさ x${combo}!`, variant: "mega" };
+          if (combo >= 2) return { text: `れんさ x${combo}`, variant: "great" };
+          if (lines >= 4) return { text: "すごい!!", variant: "mega" };
+          if (lines === 3) return { text: "トリプル!", variant: "great" };
+          if (lines === 2) return { text: "ダブル!", variant: "good" };
+          return { text: "ライン!", variant: "good" };
         }
 
         function fxLevelUp(level) {
@@ -1289,7 +1341,8 @@
             animatePlaced(placedIdxs, board2);
             if (lines > 0) {
               flashBoard();
-              fxPop(lines >= 2 ? `${lines}ライン!` : "ライン消去!");
+              const stamp = stampForClear(lines, app.game.combo);
+              fxStamp(stamp.text, stamp.variant);
               fxFireworks(lines >= 2 ? 2 : 1);
             }
             if (app.game.score >= app.bestScore && app.game.score === app.bestScore) {
@@ -1448,6 +1501,17 @@ URL: ${location.href}`;
           applyTheme();
           saveSettings(app.settings);
         });
+
+        if (el.swSkin) {
+          el.swSkin.addEventListener("click", () => {
+            const cur = app.settings.skin || "classic";
+            const idx = SKINS.indexOf(cur);
+            const next = SKINS[(idx + 1 + SKINS.length) % SKINS.length];
+            app.settings.skin = next;
+            applyTheme();
+            saveSettings(app.settings);
+          });
+        }
 
         // tray pointer events
         el.tray.addEventListener("pointerdown", onTrayPointerDown);
