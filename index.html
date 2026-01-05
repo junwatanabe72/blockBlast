@@ -1147,6 +1147,13 @@
           if (app.animLock) return;
           const card = e.target.closest(".piece-card");
           if (!card || !app.game) return;
+          const anyPlaceable = app.game.hand.some((p) =>
+            isPlaceableAnywhere(app.game.board, p)
+          );
+          if (!anyPlaceable) {
+            endGame("置けるブロックがありません");
+            return;
+          }
 
           const pid = card.dataset.pieceId;
           const piece = app.game.hand.find((p) => p.id === pid);
@@ -1361,6 +1368,9 @@
 
             if (app.game.linesCleared >= currentGoal()) {
               if (app.level < MAX_LEVEL) {
+                clearPreview();
+                removeDragGhost();
+                app.drag = { active: false };
                 levelUp();
               } else {
                 celebrateClear();
